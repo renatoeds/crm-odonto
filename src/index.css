@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Sistema visual do CRM COC Macapá Norte.
+/* Sistema visual do CRM Odonto (herdado do CRM COC).
    Alinhado ao AIMEDU: fundo branco, verde institucional e textos de alto contraste.
    Todas as cores em HSL, conforme convenção do shadcn/ui. */
 

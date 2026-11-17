@@ -58,8 +58,8 @@ function formatMediaDuration(seconds: number | null) {
 function isPdfMedia(message: MensagemAtendimento) {
   const mime = (message.mediaMimeType || "").toLowerCase().split(";")[0];
   return mime === "application/pdf" ||
-    /\\.pdf(?:$|[?#])/i.test(message.mediaName || "") ||
-    /\\.pdf(?:$|[?#])/i.test(message.mediaUrl || "");
+    /\.pdf(?:$|[?#])/i.test(message.mediaName || "") ||
+    /\.pdf(?:$|[?#])/i.test(message.mediaUrl || "");
 }
 
 function Conversation({ lead }: { lead: Atendimento }) {
