@@ -35,7 +35,10 @@ export default function Agenda() {
   const queryClient = useQueryClient();
   const { isAdmin } = useUserRole();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [day, setDay] = useState(todayInClinic());
+  const [day, setDay] = useState(() => {
+    const requested = searchParams.get("dia") || "";
+    return /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : todayInClinic();
+  });
   const [dentistFilter, setDentistFilter] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [presetPatient, setPresetPatient] = useState<string | null>(null);

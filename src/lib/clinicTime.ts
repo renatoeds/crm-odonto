@@ -46,3 +46,14 @@ export function ageFromBirthDate(value: string | null): number | null {
 export function clinicDateTimeToIso(day: string, time: string): string {
   return new Date(`${day}T${time}:00${CLINIC_OFFSET}`).toISOString();
 }
+
+/** Dia da clínica (AAAA-MM-DD) em que cai um instante ISO. */
+export function clinicDayOf(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: CLINIC_TZ }).format(new Date(iso));
+}
+
+/** Rótulo curto de um dia, ex.: "16/11". */
+export function formatShortDay(day: string): string {
+  const [, month, date] = day.split("-");
+  return `${date}/${month}`;
+}
