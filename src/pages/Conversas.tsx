@@ -1,21 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { marcarWhatsAppComoLido, useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useAtendimentos";
+import { useSearchParams } from "react-router-dom";
+import { marcarWhatsAppComoLido, useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useConversas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ExternalLink, FileText, Loader2, MessageCircle, Mic, Send, Square, Trash2 } from "lucide-react";
-import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
+import { useClinicIdentity } from "@/hooks/useClinicIdentity";
 import { attendancePriority, waitingForTeam } from "@/lib/attendancePriority";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-type Filter = "urgentes" | "atencao" | "novos" | "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
+type Filter = "urgentes" | "atencao" | "novos" | "aguardando_secretaria" | "respondido_agente" | "resolvido" | "todos";
 const filters: { key: Filter; label: string }[] = [
   { key: "urgentes", label: "Urgentes" },
   { key: "atencao", label: "Atenção" },
   { key: "novos", label: "Novos" },
-  { key: "aguardando_secretaria", label: "Aguardando secretaria" },
-  { key: "matricula", label: "Matrículas" },
+  { key: "aguardando_secretaria", label: "Aguardando equipe" },
   { key: "respondido_agente", label: "Respondidos pelo agente" },
   { key: "resolvido", label: "Resolvidos" },
   { key: "todos", label: "Todos" },
@@ -23,7 +22,7 @@ const filters: { key: Filter; label: string }[] = [
 const stages: { key: LeadStatus; label: string }[] = [
   { key: "novo", label: "Novo" },
   { key: "em_atendimento", label: "Em atendimento" },
-  { key: "em_negociacao", label: "Em negociação" },
+  { key: "em_negociacao", label: "Orçamento em negociação" },
   { key: "nao_convertido", label: "Não convertido" },
   { key: "resolvido", label: "Resolvido" },
 ];
@@ -35,7 +34,7 @@ function isNewContact(lead: Atendimento, now = Date.now()) {
 
 function subjectLabel(value: string | null) {
   if (!value) return "Não classificado";
-  const names: Record<string, string> = { matricula: "Matrícula", documento_declaracao: "Documento / declaração", financeiro: "Financeiro" };
+  const names: Record<string, string> = { agendamento: "Agendamento", orcamento: "Orçamento", urgencia: "Urgência", financeiro: "Financeiro" };
   return names[value] || value.replace(/_/g, " ").replace(/^./, (letter) => letter.toUpperCase());
 }
 
@@ -90,8 +89,8 @@ function Conversation({ lead }: { lead: Atendimento }) {
     };
   }, [audioPreviewUrl]);
 
-  // Conversa aberta = lida no WhatsApp da escola. Marca ao abrir e a cada mensagem nova
-  // da família, só com a aba do CRM visível (uma aba esquecida não marca nada).
+  // Conversa aberta = lida no WhatsApp da clínica. Marca ao abrir e a cada mensagem nova
+  // do paciente, só com a aba do CRM visível (uma aba esquecida não marca nada).
   const ultimaRecebida = useMemo(
     () => [...(messages || [])].reverse().find((m) => m.channel === "whatsapp" && m.direction === "inbound")?.id || null,
     [messages],
@@ -279,7 +278,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
               target="_blank"
               rel="noreferrer"
               className="inline-flex h-9 items-center gap-2 rounded-md border border-emerald-700 px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-50"
-              title="Abrir esta conversa no WhatsApp Web para consultar e imprimir documentos"
+              title="Abrir esta conversa no WhatsApp Web"
             >
               <MessageCircle className="h-4 w-4" />
               WhatsApp Web
@@ -295,11 +294,10 @@ function Conversation({ lead }: { lead: Atendimento }) {
         <label htmlFor="lead-status" className="text-sm font-medium">Andamento do contato</label>
         <select id="lead-status" aria-label="Andamento do contato" className="h-9 rounded-md border bg-background px-3 text-sm" value={lead.status || "novo"}
           onChange={(event) => void changeStatus(event.target.value as LeadStatus)} disabled={updateStatus.isPending}>
-          {lead.status === "matriculado" && <option value="matriculado" disabled>Matrícula confirmada no funil</option>}
+          {lead.status === "matriculado" && <option value="matriculado" disabled>Convertido</option>}
           {stages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}
         </select>
         <span className="text-xs text-slate-600">Assunto: {subjectLabel(lead.assunto)}</span>
-        <Link to="/matriculas" className="text-xs font-medium text-primary underline">Confirmar matrícula no funil do aluno</Link>
       </div>
       <div className="flex max-h-[60vh] min-h-64 flex-1 flex-col gap-3 overflow-y-auto bg-slate-50 p-4">
         {isLoading && <p className="text-sm text-slate-600">Carregando histórico...</p>}
@@ -311,7 +309,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
           const text = outgoing
             ? rawText.replace(/^\*(?:\[Atendente\s+[^\]\r\n]+\]|[^*\r\n]*(?:Secretaria|Atendente)[^*\r\n]*)\*\s*/i, "")
             : rawText;
-          const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela secretaria)/i.test(text);
+          const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela (?:secretaria|equipe))/i.test(text);
           const duration = formatMediaDuration(m.mediaDurationSeconds);
           return (
             <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3 py-2 text-sm ${outgoing ? "self-end bg-emerald-100" : "self-start bg-white"}`}>
@@ -329,7 +327,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
                 <p className="whitespace-pre-wrap break-words">{m.isAudio ? `Transcrição: ${text}` : text}</p>
               )}
               {audioPlaceholder && m.isAudio && (
-                <p className="whitespace-pre-wrap break-words text-slate-600">{outgoing ? "Áudio enviado pela secretaria." : "Áudio recebido; o conteúdo não ficou disponível em texto."}</p>
+                <p className="whitespace-pre-wrap break-words text-slate-600">{outgoing ? "Áudio enviado pela equipe." : "Áudio recebido; o conteúdo não ficou disponível em texto."}</p>
               )}
               {!text && !m.mediaType && <p className="whitespace-pre-wrap break-words">(mensagem sem texto)</p>}
               {m.mediaType === "image" && m.mediaUrl && (
@@ -364,10 +362,10 @@ function Conversation({ lead }: { lead: Atendimento }) {
                 </div>
               )}
               {m.mediaType === "document" && (
-                <p className="mt-1 text-xs text-slate-600">Para localizar outros arquivos e imprimir a documentação da família, use o atalho WhatsApp Web no cabeçalho.</p>
+                <p className="mt-1 text-xs text-slate-600">Para localizar outros arquivos desta conversa, use o atalho WhatsApp Web no cabeçalho.</p>
               )}
               <p className="mt-1 text-[11px] text-slate-500">
-                {m.channel === "whatsapp" ? "WhatsApp" : "E-mail"} · {outgoing ? "Enviada pela escola" : "Recebida"} · {new Date(m.at).toLocaleString("pt-BR")}
+                {m.channel === "whatsapp" ? "WhatsApp" : "E-mail"} · {outgoing ? "Enviada pela clínica" : "Recebida"} · {new Date(m.at).toLocaleString("pt-BR")}
               </p>
             </div>
           );
@@ -395,7 +393,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
               </div>
             )}
             <div className="flex gap-2">
-              <Input aria-label="Mensagem de WhatsApp" placeholder={isRecording ? "Gravação em andamento..." : "Escreva uma resposta para a família"} value={draft}
+              <Input aria-label="Mensagem de WhatsApp" placeholder={isRecording ? "Gravação em andamento..." : "Escreva uma resposta para o paciente"} value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void sendMessage(); } }}
                 disabled={send.isPending || isRecording || sendAudio.isPending} />
@@ -438,8 +436,8 @@ function Conversation({ lead }: { lead: Atendimento }) {
   );
 }
 
-export default function Atendimentos() {
-  const { agentName } = useSchoolIdentity();
+export default function Conversas() {
+  const { agentName } = useClinicIdentity();
   const { data, isLoading, isError } = useAtendimentos();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedFilter = searchParams.get("status");
@@ -454,13 +452,12 @@ export default function Atendimentos() {
     atencao: (data || []).filter((a) => attendancePriority(a).level === 2).length,
     novos: (data || []).filter(isNewContact).length,
     aguardando_secretaria: (data || []).filter(waitingForTeam).length,
-    matricula: (data || []).filter((a) => a.assunto === "matricula").length,
     respondido_agente: (data || []).filter((a) => a.triage_status === "respondido_agente").length,
     resolvido: (data || []).filter((a) => a.triage_status === "resolvido").length,
     todos: data?.length || 0,
   }), [data]);
   const list = (data || []).filter((lead) => {
-    const matchesFilter = (stageFilter ? lead.status === stageFilter : filter === "todos" || (filter === "urgentes" ? attendancePriority(lead).level >= 3 : filter === "atencao" ? attendancePriority(lead).level === 2 : filter === "novos" ? isNewContact(lead) : filter === "matricula" ? lead.assunto === "matricula" : filter === "aguardando_secretaria" ? waitingForTeam(lead) : lead.triage_status === filter));
+    const matchesFilter = (stageFilter ? lead.status === stageFilter : filter === "todos" || (filter === "urgentes" ? attendancePriority(lead).level >= 3 : filter === "atencao" ? attendancePriority(lead).level === 2 : filter === "novos" ? isNewContact(lead) : filter === "aguardando_secretaria" ? waitingForTeam(lead) : lead.triage_status === filter));
     const term = search.toLocaleLowerCase("pt-BR");
     return matchesFilter && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
   }).sort((a, b) => attendancePriority(b).level - attendancePriority(a).level ||
@@ -472,8 +469,8 @@ export default function Atendimentos() {
 
   return (
     <div className="mx-auto max-w-[1480px] px-4 py-6 md:px-7">
-      <h1 className="text-2xl font-bold">Atendimentos da escola</h1>
-      <p className="mt-1 text-sm text-slate-600">Acompanhe os repasses de {agentName} e responda às famílias pelo WhatsApp. O vermelho indica uma demanda escolar urgente; o amarelo, atenção por espera; o azul, contato novo.</p>
+      <h1 className="text-2xl font-bold">Conversas</h1>
+      <p className="mt-1 text-sm text-slate-600">Responda aos pacientes e contatos pelo WhatsApp. O vermelho indica urgência; o amarelo, atenção por espera; o azul, contato novo.</p>
       {stageFilter && <p className="mt-2 text-sm text-slate-600">Andamento: {stages.find((item) => item.key === stageFilter)?.label}. <button className="font-medium text-primary underline" onClick={() => setSearchParams({ status: "todos" })}>Mostrar todos</button></p>}
       <div className="mt-5 flex flex-wrap gap-2">
         {filters.map((item) => (
@@ -486,13 +483,13 @@ export default function Atendimentos() {
       <div className="mt-4 grid overflow-hidden rounded-xl border bg-white md:grid-cols-[minmax(280px,360px)_1fr]">
         <div className="border-b md:border-b-0 md:border-r">
           <div className="border-b p-3">
-            <Input aria-label="Buscar atendimento" placeholder="Buscar nome, telefone ou e-mail"
+            <Input aria-label="Buscar conversa" placeholder="Buscar nome, telefone ou e-mail"
               value={search} onChange={(event) => setSearch(event.target.value)} />
           </div>
           <div className="max-h-[70vh] overflow-y-auto">
-            {isLoading && <p className="p-4 text-sm text-slate-600">Carregando atendimentos...</p>}
-            {isError && <p className="p-4 text-sm text-red-700">Erro ao carregar atendimentos.</p>}
-            {!isLoading && !isError && !list.length && <p className="p-4 text-sm text-slate-600">Nenhum atendimento nesta lista.</p>}
+            {isLoading && <p className="p-4 text-sm text-slate-600">Carregando conversas...</p>}
+            {isError && <p className="p-4 text-sm text-red-700">Erro ao carregar conversas.</p>}
+            {!isLoading && !isError && !list.length && <p className="p-4 text-sm text-slate-600">Nenhuma conversa nesta lista.</p>}
             {list.map((lead) => (
               <button key={lead.id} type="button" onClick={() => setSelectedId(lead.id)}
                 className={`w-full border-b px-4 py-3 text-left hover:bg-emerald-50 ${attendancePriority(lead).level >= 3 ? "border-l-4 border-l-red-600 bg-red-50" : attendancePriority(lead).level === 2 ? "border-l-4 border-l-amber-500 bg-amber-50" : isNewContact(lead) ? "border-l-4 border-l-blue-500 bg-blue-50" : ""} ${lead.id === selected?.id ? "ring-2 ring-inset ring-emerald-400" : ""}`}>
@@ -506,7 +503,7 @@ export default function Atendimentos() {
         </div>
         {selected ? <Conversation key={selected.id} lead={selected} /> : (
           <div className="flex min-h-[400px] items-center justify-center p-8 text-center text-sm text-slate-600">
-            Selecione um atendimento para ler o histórico e responder.
+            Selecione uma conversa para ler o histórico e responder.
           </div>
         )}
       </div>

@@ -1,10 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Bot, Building2, Plug } from "lucide-react";
+import { ArrowLeft, Building2, Plug } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import SchoolSettingsTab from "@/components/settings/SchoolSettingsTab";
+import ClinicSettingsTab from "@/components/settings/ClinicSettingsTab";
 import GeneralSettingsTab from "@/components/settings/GeneralSettingsTab";
-import VirtualAttendantSettingsTab from "@/components/settings/VirtualAttendantSettingsTab";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -18,18 +17,16 @@ const Settings = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Configurações</h1>
-            <p className="text-sm text-muted-foreground">Gerencie a escola, as integrações e o comportamento da atendente virtual.</p>
+            <p className="text-sm text-muted-foreground">Gerencie os dados da clínica e as integrações.</p>
           </div>
         </div>
 
-        <Tabs defaultValue="atendente" className="space-y-6">
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-1 sm:grid-cols-3">
-            <TabsTrigger value="atendente" className="gap-2 py-2.5"><Bot className="h-4 w-4" />Atendente Virtual</TabsTrigger>
-            <TabsTrigger value="escola" className="gap-2 py-2.5"><Building2 className="h-4 w-4" />Escola</TabsTrigger>
+        <Tabs defaultValue="clinica" className="space-y-6">
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-1 sm:grid-cols-2">
+            <TabsTrigger value="clinica" className="gap-2 py-2.5"><Building2 className="h-4 w-4" />Clínica</TabsTrigger>
             <TabsTrigger value="integracoes" className="gap-2 py-2.5"><Plug className="h-4 w-4" />Integrações</TabsTrigger>
           </TabsList>
-          <TabsContent value="atendente"><VirtualAttendantSettingsTab /></TabsContent>
-          <TabsContent value="escola"><SchoolSettingsTab /></TabsContent>
+          <TabsContent value="clinica"><ClinicSettingsTab /></TabsContent>
           <TabsContent value="integracoes"><GeneralSettingsTab /></TabsContent>
         </Tabs>
       </div>

@@ -6,8 +6,8 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
-  const schoolName = process.env.VITE_SCHOOL_NAME || env.VITE_SCHOOL_NAME || "COC Macapá Norte";
-  const escapedSchoolName = schoolName.replace(/[&<>"']/g, (char) => ({
+  const clinicName = process.env.VITE_CLINIC_NAME || env.VITE_CLINIC_NAME || "Clínica Odontológica";
+  const escapedClinicName = clinicName.replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[char]!));
   return ({
@@ -16,8 +16,8 @@ export default defineConfig(({ mode }) => {
     port: 8080,
   },
   plugins: [react(), {
-    name: "school-build-identity",
-    transformIndexHtml: (html: string) => html.replaceAll("COC Macapá Norte", escapedSchoolName),
+    name: "clinic-build-identity",
+    transformIndexHtml: (html: string) => html.replaceAll("Clínica Odontológica", escapedClinicName),
   }, mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
+import { useClinicIdentity } from "@/hooks/useClinicIdentity";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -72,8 +72,8 @@ function formatSource(source: string): string {
 }
 
 export function ActivityLog({ leadId }: ActivityLogProps) {
-  // "ana" é o código interno da atendente virtual; exibe o nome configurado da escola.
-  const { agentName } = useSchoolIdentity();
+  // "ana" é o código interno da atendente virtual; exibe o nome configurado da clínica.
+  const { agentName } = useClinicIdentity();
   const [items, setItems] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);

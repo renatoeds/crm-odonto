@@ -239,7 +239,7 @@ export default function Usuarios() {
                 <Select value={newRole} onValueChange={(value) => setNewRole(value as "user" | "admin")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">Secretaria</SelectItem>
+                    <SelectItem value="user">Equipe</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
@@ -283,7 +283,7 @@ export default function Usuarios() {
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-base">{u.name || u.email}</CardTitle>
-                        <Badge variant={isAdmin ? "default" : "secondary"}>{isAdmin ? "Administrador" : "Secretaria"}</Badge>
+                        <Badge variant={isAdmin ? "default" : "secondary"}>{isAdmin ? "Administrador" : "Equipe"}</Badge>
                       </div>
                       {u.name && <p className="text-xs text-muted-foreground">{u.email}</p>}
                       <p className="text-xs text-muted-foreground">
@@ -369,7 +369,7 @@ export default function Usuarios() {
             <Select value={roleValue} onValueChange={(value) => setRoleValue(value as "user" | "admin")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="user">Secretaria</SelectItem>
+                <SelectItem value="user">Equipe</SelectItem>
                 <SelectItem value="admin">Administrador</SelectItem>
               </SelectContent>
             </Select>

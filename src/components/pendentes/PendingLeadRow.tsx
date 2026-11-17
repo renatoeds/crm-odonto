@@ -8,7 +8,7 @@ const statusLabels: Record<string, string> = {
   novo: "Novo",
   em_atendimento: "Em Atendimento",
   em_negociacao: "Em Negociação",
-  matriculado: "Matriculado",
+  matriculado: "Convertido",
   resolvido: "Resolvido",
   nao_convertido: "Não Convertido",
 };
@@ -53,7 +53,7 @@ export function PendingLeadRow({ lead }: { lead: PendingLead }) {
 
   return (
     <Link
-      to={`/atendimentos?status=todos&lead=${encodeURIComponent(lead.id)}`}
+      to={`/conversas?status=todos&lead=${encodeURIComponent(lead.id)}`}
       className="block border-b border-border hover:bg-muted/40 transition-colors"
     >
       <div className="flex items-start gap-3 p-4">
@@ -78,7 +78,7 @@ export function PendingLeadRow({ lead }: { lead: PendingLead }) {
             )}
             {waitingForSecretary && (
               <Badge variant="destructive" className="text-xs">
-                Aguardando secretaria
+                Aguardando equipe
               </Badge>
             )}
             {unansweredMessage && !waitingForSecretary && (
