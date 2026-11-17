@@ -1,6 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   BellDot,
+  CalendarDays,
+  ContactRound,
   ChevronDown,
   ClipboardList,
   LogOut,
@@ -72,6 +74,8 @@ export function AppTopNav() {
         <nav className="order-3 flex w-full items-center gap-1 overflow-x-auto py-2 md:order-none md:w-auto md:overflow-visible md:py-0" aria-label="Navegação principal">
           <NavLink to="/conversas" label="Conversas" icon={MessagesSquare} />
           <NavLink to="/pendentes" label="Pendentes" icon={BellDot} />
+          <NavLink to="/agenda" label="Agenda" icon={CalendarDays} />
+          <NavLink to="/pacientes" label="Pacientes" icon={ContactRound} />
           {isAdmin && <NavLink to="/usuarios" label="Equipe" icon={Users} />}
           {isAdmin && <NavLink to="/auditoria" label="Auditoria" icon={ClipboardList} />}
         </nav>
