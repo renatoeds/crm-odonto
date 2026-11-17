@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type TriageStatus = "novo" | "respondido_agente" | "aguardando_secretaria" | "resolvido";
 export type LeadStatus = "novo" | "em_atendimento" | "em_negociacao" | "matriculado" | "nao_convertido" | "resolvido";
-export type Assunto = "matricula" | "curriculo" | "horario" | "localizacao" | "outros";
+export type Assunto = string;
 
 export type WhatsAppMediaType = "audio" | "image" | "video" | "document" | "sticker" | "location" | "contact" | "file";
 
@@ -91,7 +91,7 @@ function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, m
     document?.mimeType, document?.mimetype, findValue("mimeType", "mimetype", "documentMimeType", "imageMimeType", "videoMimeType"),
   );
   const messageText = (message || "").trim();
-  const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela secretaria)/i.test(messageText);
+  const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela (?:secretaria|equipe))/i.test(messageText);
   let mediaType: WhatsAppMediaType | null = null;
   if (isAudioFlag || audioUrl || /audio\//i.test(mimeType || "") || audioPlaceholder) mediaType = "audio";
   else if (imageUrl || /image\//i.test(mimeType || "")) mediaType = "image";
@@ -203,8 +203,8 @@ export function useUpdateLeadStatus() {
         patch.triage_status = status === "novo" ? "novo" : "aguardando_secretaria";
         patch.resolved_at = null;
       } else if (lead.triage_status === "aguardando_secretaria" && (status === "em_atendimento" || status === "em_negociacao")) {
-        // A secretaria assumiu o atendimento: deixa de aguardar a equipe e sai da urgência.
-        // Uma mensagem nova da família volta a acionar a triagem normalmente.
+        // A equipe assumiu a conversa: deixa de aguardar e sai da urgência.
+        // Uma mensagem nova do paciente volta a acionar a triagem normalmente.
         patch.triage_status = "respondido_agente";
       }
       const { data, error } = await supabase.from("leads").update(patch).eq("id", lead.id).select("id").single();
@@ -304,7 +304,7 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
   });
 }
 
-// Avisa o WhatsApp da escola que a conversa foi lida (tiques azuis para a família).
+// Avisa o WhatsApp da clínica que a conversa foi lida (tiques azuis para o paciente).
 // Falhas não atrapalham o atendimento: no pior caso a conversa fica como não lida no aparelho.
 export async function marcarWhatsAppComoLido(leadId: string): Promise<boolean> {
   try {
@@ -356,7 +356,7 @@ export function useEnviarAudioWhatsApp() {
         : mimeType === "audio/wav" ? "wav"
         : mimeType === "audio/aac" ? "aac"
         : "webm";
-      const fileName = `audio-secretaria-${Date.now()}.${extension}`;
+      const fileName = `audio-equipe-${Date.now()}.${extension}`;
       const storagePath = `${authData.user.id}/${lead.id}/${crypto.randomUUID()}.${extension}`;
       const { error: uploadError } = await supabase.storage
         .from("whatsapp-audio")

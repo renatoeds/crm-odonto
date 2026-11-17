@@ -7,7 +7,7 @@ Derivado do CRM do COC Macapá Norte (`charlyjhone/crm-coc-macapa`, commit `3d25
 ## Estado
 
 - Banco: projeto Supabase `crm-odonto` (`bdgtilgnicexcxyzcjks`), já com as tabelas do núcleo e as clínicas.
-- Código: **em adaptação**. As telas escolares (famílias, visitas, matrículas) ainda estão no código e dependem de tabelas que não existem no banco da clínica.
+- Código: **em adaptação**. Prontas: conversas, pendentes, equipe, auditoria e configurações. Faltam: pacientes, agenda, prontuário, orçamentos, funil, assistente virtual e a publicação das Edge Functions.
 
 ## Desenvolvimento
 

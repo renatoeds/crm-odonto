@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLeadPhoneVariants, getPhoneVariants } from "@/lib/whatsappPhone";
 import { waitingForTeam } from "@/lib/attendancePriority";
-import type { Atendimento } from "@/hooks/useAtendimentos";
+import type { Atendimento } from "@/hooks/useConversas";
 
 export type PendingChannel = "email" | "whatsapp";
 export type PendingReason = "unanswered_message" | "aguardando_secretaria";
@@ -211,7 +211,7 @@ export function usePendingLeads() {
                 (lead.last_inbound_message || "").trim() ||
                 (lead.triage_summary || "").trim() ||
                 (lead.handoff_reason || "").trim() ||
-                "Encaminhado à secretaria; aguardando retorno humano.",
+                "Encaminhado à equipe; aguardando retorno humano.",
             });
           }
         }
@@ -244,7 +244,7 @@ export function usePendingLeads() {
             (lead.triage_summary || "").trim() ||
             (lead.handoff_reason || "").trim() ||
             (reasons.includes("aguardando_secretaria")
-              ? "Encaminhado à secretaria; aguardando retorno humano."
+              ? "Encaminhado à equipe; aguardando retorno humano."
               : ""),
         });
       }

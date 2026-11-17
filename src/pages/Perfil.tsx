@@ -95,7 +95,7 @@ export default function Perfil() {
             <CardDescription className="mt-1 truncate">{user?.email}</CardDescription>
           </div>
           <Badge variant={isAdmin ? "default" : "secondary"} className="shrink-0">
-            {roleLoading ? "Carregando" : isAdmin ? "Administrador" : "Secretaria"}
+            {roleLoading ? "Carregando" : isAdmin ? "Administrador" : "Equipe"}
           </Badge>
         </CardHeader>
         <CardContent className="border-t border-slate-100 pt-4 text-sm text-slate-600">
