@@ -13,6 +13,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Conversas = lazy(() => import("./pages/Conversas"));
+const Painel = lazy(() => import("./pages/Painel"));
 const Pacientes = lazy(() => import("./pages/Pacientes"));
 const Agenda = lazy(() => import("./pages/Agenda"));
 const Pendentes = lazy(() => import("./pages/Pendentes"));
@@ -41,7 +42,8 @@ const App = () => (
           <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-white text-sm font-medium text-slate-600">Carregando CRM...</div>}>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<Navigate to="/conversas" replace />} />
+            <Route path="/" element={<Navigate to="/painel" replace />} />
+            <Route path="/painel" element={<ProtectedLayout><Painel /></ProtectedLayout>} />
             <Route path="/conversas" element={<ProtectedLayout><Conversas /></ProtectedLayout>} />
             <Route path="/pacientes" element={<ProtectedLayout><Pacientes /></ProtectedLayout>} />
             <Route path="/agenda" element={<ProtectedLayout><Agenda /></ProtectedLayout>} />

@@ -3,6 +3,7 @@ import {
   BellDot,
   CalendarDays,
   ContactRound,
+  LayoutDashboard,
   ChevronDown,
   ClipboardList,
   LogOut,
@@ -67,11 +68,12 @@ export function AppTopNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-emerald-950/10 bg-background/95 shadow-[0_1px_8px_rgba(16,44,34,0.04)] backdrop-blur">
       <div className="mx-auto flex min-h-[68px] max-w-[1480px] flex-wrap items-center gap-x-5 gap-y-0 px-4 py-2 md:flex-nowrap md:px-7 md:py-0">
-        <Link to="/conversas" className="flex shrink-0 items-center" aria-label="AE CRM — início">
+        <Link to="/painel" className="flex shrink-0 items-center" aria-label="AE CRM — início">
           <img src="/brand/ae-crm-logo.svg" alt="AE CRM" className="h-10 w-auto max-w-[170px]" />
         </Link>
 
         <nav className="order-3 flex w-full items-center gap-1 overflow-x-auto py-2 md:order-none md:w-auto md:overflow-visible md:py-0" aria-label="Navegação principal">
+          <NavLink to="/painel" label="Painel" icon={LayoutDashboard} />
           <NavLink to="/conversas" label="Conversas" icon={MessagesSquare} />
           <NavLink to="/pendentes" label="Pendentes" icon={BellDot} />
           <NavLink to="/agenda" label="Agenda" icon={CalendarDays} />
