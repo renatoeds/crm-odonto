@@ -53,6 +53,7 @@ export default function ClinicSettingsTab() {
       return;
     }
     await queryClient.invalidateQueries({ queryKey: ["clinic-identity"] });
+    await queryClient.invalidateQueries({ queryKey: ["clinic-settings"] });
     toast.success("Informações da clínica salvas");
   };
 

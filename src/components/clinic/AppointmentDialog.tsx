@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { clinicErrorMessage, type Chair, type Dentist, type Patient, type Procedure } from "@/hooks/useClinicData";
 import { clinicDateTimeToIso, formatClinicTime } from "@/lib/clinicTime";
+import { useClinicSchedule } from "@/hooks/useClinicSettings";
+import { fitsSchedule, weekdayOfDay } from "@/lib/clinicSchedule";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +41,7 @@ export function AppointmentDialog({ open, onOpenChange, defaultDay, defaultPatie
   chairs: Chair[];
 }) {
   const queryClient = useQueryClient();
+  const schedule = useClinicSchedule();
   const activeDentists = useMemo(() => dentists.filter((dentist) => dentist.active), [dentists]);
   const [patientId, setPatientId] = useState<string | null>(null);
   const [patientSearch, setPatientSearch] = useState("");
@@ -86,12 +89,19 @@ export function AppointmentDialog({ open, onOpenChange, defaultDay, defaultPatie
   }, [patients, patientSearch]);
 
   const slots = useQuery({
-    queryKey: ["available-slots", dentistId, day, duration],
+    queryKey: ["available-slots", dentistId, day, duration, schedule.open, schedule.close, schedule.lunchStart, schedule.lunchEnd, schedule.days.join(",")],
     enabled: open && !manual && !!dentistId && !!day && duration >= 5,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("available_slots", { p_dentist_id: dentistId, p_day: day, p_duration_min: duration });
+      if (!schedule.days.includes(weekdayOfDay(day))) return [];
+      const { data, error } = await supabase.rpc("available_slots", {
+        p_dentist_id: dentistId,
+        p_day: day,
+        p_duration_min: duration,
+        p_open: schedule.open,
+        p_close: schedule.close,
+      });
       if (error) throw error;
-      return data || [];
+      return (data || []).filter((item) => fitsSchedule(item.slot_start, duration, schedule));
     },
   });
 
@@ -202,7 +212,7 @@ export function AppointmentDialog({ open, onOpenChange, defaultDay, defaultPatie
             ) : (
               <select id="appointment-time" className={selectClass} value={slot} onChange={(event) => setSlot(event.target.value)} disabled={!dentistId || slots.isLoading}>
                 <option value="">
-                  {!dentistId ? "Escolha o dentista" : slots.isLoading ? "Buscando horários..." : slots.isError ? "Erro ao buscar horários" : slots.data?.length ? "Selecione" : "Sem horários livres neste dia"}
+                  {!dentistId ? "Escolha o dentista" : slots.isLoading ? "Buscando horários..." : slots.isError ? "Erro ao buscar horários" : slots.data?.length ? "Selecione" : !schedule.days.includes(weekdayOfDay(day)) ? "A clínica não atende neste dia" : "Sem horários livres neste dia"}
                 </option>
                 {(slots.data || []).map((item) => <option key={item.slot_start} value={item.slot_start}>{formatClinicTime(item.slot_start)}</option>)}
               </select>

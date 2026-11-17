@@ -25,3 +25,17 @@ jobs:
         env:
           VITE_SUPABASE_URL: https://bdgtilgnicexcxyzcjks.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: build-placeholder
+
+  edge-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type check (atendente virtual)
+        run: deno check supabase/functions/clinic-assistant/index.ts
+      - name: Tests (atendente virtual)
+        run: deno test supabase/functions/_shared/clinic-assistant-core_test.ts
