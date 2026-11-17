@@ -1,0 +1,242 @@
+import { authorizeSchoolRequest } from "../_shared/authorize-school-request.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { setActivityContext } from "../_shared/activity-context.ts";
+import { normalizeWhatsAppPhone } from "../_shared/whatsapp-phone.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const authorization = await authorizeSchoolRequest(req, corsHeaders);
+    if (authorization.response) return authorization.response;
+
+    const { phone, message, leadId, optionList, surveyStep, senderType: requestedSender = 'human' } = await req.json();
+    const senderType = authorization.internal && requestedSender === 'ana' ? 'ana' : 'human';
+
+    if (typeof phone !== 'string' || typeof message !== 'string' || !phone.trim() || !message.trim()) {
+      return new Response(
+        JSON.stringify({ error: 'phone e message são obrigatórios' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+
+    // Nome obtido da sessão validada no servidor, nunca do corpo enviado pelo navegador.
+    let operatorId: string | null = null;
+    let operatorName: string | null = null;
+    if (!authorization.internal) {
+      const token = /^Bearer\s+(\S+)$/i.exec(req.headers.get("authorization") || "")?.[1];
+      const authClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      const { data: operator, error: operatorError } = await authClient.auth.getUser(token);
+      if (operatorError || !operator.user) {
+        return new Response(JSON.stringify({ error: 'Sessão inválida' }), { status: 401, headers: corsHeaders });
+      }
+      operatorId = operator.user.id;
+      const rawName = operator.user.user_metadata?.full_name;
+      operatorName = typeof rawName === 'string'
+        ? rawName.replace(/[\r\n*_~\x60]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)
+        : '';
+      if (!operatorName) {
+        return new Response(JSON.stringify({ error: 'Cadastre seu nome em Meu perfil antes de enviar mensagens.' }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+    const outboundMessage = senderType === 'human' && operatorName
+      ? '*' + operatorName + ' — Secretaria COC*\n' + message.trim()
+      : message;
+
+    const surveyOptions = surveyStep === 'origin' || surveyStep === 'rating';
+    if ((optionList || surveyStep) && (!authorization.internal || requestedSender !== 'ana' || !surveyOptions)) {
+      return new Response(JSON.stringify({ error: 'Lista não autorizada' }), { status: 403, headers: corsHeaders });
+    }
+    if (optionList && (!Array.isArray(optionList.options) || optionList.options.length < 2 || optionList.options.length > 10 ||
+      optionList.options.some((item: { title?: string; id?: string }) =>
+        typeof item.title !== 'string' || typeof item.id !== 'string'))) {
+      return new Response(JSON.stringify({ error: 'Lista inválida' }), { status: 400, headers: corsHeaders });
+    }
+
+    const ZAPI_INSTANCE_ID = Deno.env.get('ZAPI_INSTANCE_ID');
+    const ZAPI_TOKEN = Deno.env.get('ZAPI_TOKEN');
+    const ZAPI_CLIENT_TOKEN = Deno.env.get('ZAPI_CLIENT_TOKEN');
+
+    if (!ZAPI_INSTANCE_ID || !ZAPI_TOKEN || !ZAPI_CLIENT_TOKEN) {
+      return new Response(
+        JSON.stringify({ error: 'Credenciais Z-API não configuradas' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Normalizar telefone (remover caracteres especiais)
+    // O número deve estar cadastrado com código de país incluso (ex: 5511999998888)
+    const normalizedPhone = normalizeWhatsAppPhone(phone);
+
+    // Ao iniciar um chat (primeiro outbound), precisamos persistir o chatLid no lead
+    // para que callbacks do webhook que chegam como "@lid" nunca mais virem órfãos.
+    let resolvedChatLid: string | null = null;
+    if (leadId) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        const { data: lead } = await supabase
+          .from('leads')
+          .select('id, whatsapp_chat_lids, whatsapp_phone_lid_map')
+          .eq('id', leadId)
+          .maybeSingle();
+
+        const existingChatLids: string[] = lead?.whatsapp_chat_lids || [];
+        const existingPhoneLidMap = ((lead as any)?.whatsapp_phone_lid_map || {}) as Record<string, string>;
+
+        const phoneExistsUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/phone-exists/${normalizedPhone}`;
+        const phoneExistsRes = await fetch(phoneExistsUrl, {
+          method: 'GET',
+          headers: {
+            'Client-Token': ZAPI_CLIENT_TOKEN,
+          },
+        });
+
+        if (!phoneExistsRes.ok) {
+          const errTxt = await phoneExistsRes.text().catch(() => '');
+          console.error("CRM event");
+        } else {
+          const phoneExistsData = await phoneExistsRes.json();
+          if (phoneExistsData?.exists && phoneExistsData?.lid) {
+            const formatted = (phoneExistsData.lid as string).includes('@')
+              ? (phoneExistsData.lid as string)
+              : `${phoneExistsData.lid}@lid`;
+
+            resolvedChatLid = formatted;
+
+            const mergedPhoneLidMap = {
+              ...existingPhoneLidMap,
+              [normalizedPhone]: formatted,
+              [normalizedPhone.startsWith('55') ? normalizedPhone.slice(2) : normalizedPhone]: formatted,
+            };
+
+            if (!existingChatLids.includes(formatted) || JSON.stringify(mergedPhoneLidMap) !== JSON.stringify(existingPhoneLidMap)) {
+              const { error: updateErr } = await supabase
+                .from('leads')
+                .update({
+                  whatsapp_chat_lids: existingChatLids.includes(formatted) ? existingChatLids : [...existingChatLids, formatted],
+                  whatsapp_phone_lid_map: mergedPhoneLidMap,
+                })
+                .eq('id', leadId);
+
+              if (updateErr) {
+                console.error('Erro ao salvar whatsapp_chat_lids no lead:');
+              } else {
+                console.log('chatLid persistido no lead (início de chat):');
+              }
+            }
+
+            // Se já existir algum callback órfão com @lid, tentar reconciliar imediatamente.
+            const { error: reconcileErr } = await supabase
+              .from('whatsapp_messages')
+              .update({ lead_id: leadId })
+              .is('lead_id', null)
+              .or(`phone.eq.${formatted},raw_data->>chatLid.eq.${formatted}`);
+
+            if (reconcileErr) {
+              console.error('Erro ao reconciliar mensagens órfãs (pre-send):');
+            }
+          }
+        }
+        // Fallback: usa o LID já salvo no lead quando o phone-exists não resolver
+        if (!resolvedChatLid && existingChatLids.length > 0) {
+          resolvedChatLid = existingChatLids[0];
+          console.log('Usando chatLid já salvo no lead como fallback:');
+        }
+      } catch (e) {
+        console.error('Falha ao resolver/persistir chatLid antes de enviar:');
+      }
+    }
+
+    // Enviar mensagem via Z-API
+    const zapiUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/${optionList ? 'send-option-list' : 'send-text'}`;
+    
+    console.log('Enviando mensagem para:');
+    
+    const sendViaZapi = async (target: string) => {
+      const resp = await fetch(zapiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Client-Token': ZAPI_CLIENT_TOKEN,
+        },
+        body: JSON.stringify({ phone: target, message: outboundMessage, ...(optionList ? { optionList } : {}) }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      console.log("CRM event");
+      // Sucesso REAL exige id de mensagem no corpo — a Z-API pode devolver
+      // HTTP 200 com erro, e "200 sem id" já produziu mensagem fantasma
+      // (registrada no CRM sem nunca chegar no cliente).
+      const ok = resp.ok && !!(data?.messageId || data?.zaapId || data?.id);
+      return { ok, data };
+    };
+
+    let sendResult = await sendViaZapi(normalizedPhone);
+
+    // Fallback: chats que vivem sob LID (frequente com números internacionais)
+    // podem não aceitar envio pelo número — tenta pelo chatLid resolvido.
+    if (!sendResult.ok && resolvedChatLid) {
+      console.warn("CRM event");
+      sendResult = await sendViaZapi(resolvedChatLid);
+      if (!sendResult.ok) {
+        sendResult = await sendViaZapi(resolvedChatLid.replace('@lid', ''));
+      }
+    }
+
+    const zapiData = sendResult.data;
+    if (!sendResult.ok) {
+      // NÃO registra a mensagem no banco — falha precisa ser visível pra quem chamou
+      throw new Error(`Z-API não confirmou o envio (sem messageId): ${JSON.stringify(zapiData).slice(0, 300)}`);
+    }
+
+    // Salvar mensagem no banco — associada APENAS ao número de telefone (não ao lead).
+    // O lead "vê" a mensagem porque o número está cadastrado nele; o cache é recalculado por trigger.
+    {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      await setActivityContext(supabase, { source: 'edge_function:send-whatsapp', actor: senderType });
+
+      await supabase
+        .from('whatsapp_messages')
+        .insert({
+          lead_id: null,
+          phone: normalizedPhone,
+          message: outboundMessage,
+          direction: 'outbound',
+          timestamp: new Date().toISOString(),
+          raw_data: {
+            ...zapiData,
+            resolvedChatLid,
+            operator_id: operatorId,
+            operator_name: operatorName,
+            sender_type: senderType === 'ana' ? 'ana' : 'human',
+            source: senderType === 'ana' ? 'school-triage' : 'manual',
+            survey_step: surveyOptions ? surveyStep : undefined,
+          },
+        });
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, data: zapiData }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Erro ao enviar mensagem:');
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
